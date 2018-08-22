@@ -88,12 +88,6 @@ namespace TrainDetectorDll
                 if (line.EndsWith("images"))
                 {
                     var results = line.Split(new string[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
-                    //Console.WriteLine("iterations: " + results[0].Split(':')[0]);
-                    //Console.WriteLine("avg loss: " + results[1].Split(' ')[0]);
-                    //Console.WriteLine("rate: " + results[2].Split(' ')[0]);
-                    //Console.WriteLine("Time: " + results[3].Split(' ')[0]); // seconds?
-                    //Console.WriteLine("images: " + results[4].Split(' ')[0]);
-                    //Console.WriteLine();
                     StepResult stepResult;
                     stepResult.Iterations = results[0].Split(':')[0].TrimStart();
                     stepResult.AvgLoss = results[1].Split(' ')[0];
@@ -130,7 +124,7 @@ namespace TrainDetectorDll
                 }
             }
 
-            // save to DataFile.train text file
+            // save pics list to DataFile.Train text file
             using (StreamWriter writer = new StreamWriter(dataFile.Train))
             {
                 foreach (var pic in pictures)
@@ -147,6 +141,24 @@ namespace TrainDetectorDll
                 writer.WriteLine("valid = " + dataFile.Valid);
                 writer.WriteLine("names = " + dataFile.Names);
                 writer.WriteLine("backup = " + dataFile.Backup);
+            }
+
+            // create DataFile.Backup
+            if(!Directory.Exists(dataFile.Backup))
+            {
+                Directory.CreateDirectory(dataFile.Backup);
+            }
+
+            // check related files
+            checkFiles(Trainer, NetCfg, NetWeights, TrainDataPath, DataFilePath, dataFile.Train, dataFile.Valid, dataFile.Names, dataFile.Backup);
+        }
+
+        private void checkFiles(params string[] files)
+        {
+            foreach (var file in files)
+            {
+                if (File.Exists(file) || Directory.Exists(file)) { }
+                else throw new FileNotFoundException("not found " + file);                   
             }
         }
 
