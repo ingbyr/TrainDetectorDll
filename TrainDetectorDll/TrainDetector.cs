@@ -81,13 +81,6 @@ namespace TrainDetectorDll
             proc.Start();
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
-            proc.WaitForExit();
-
-            //TrainDetector.StepResult result;
-            //while (MsgQueue.TryDequeue(out result))
-            //{
-            //    Console.WriteLine("[info] " + result.ToString());
-            //}
         }
 
         void OutputHandler(object sendingProcess, DataReceivedEventArgs line)
