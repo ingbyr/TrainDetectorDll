@@ -3,12 +3,13 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Threading;
 
 namespace TrainDetectorDll
 {
     public class TrainDetector
     {
+        // debug
+        public bool debug = false;
         // darknet.exe command args
         public string Trainer;
         public string NetCfg;
@@ -48,12 +49,15 @@ namespace TrainDetectorDll
         }
 
         // msg queue
-        public FixedSizedQueue<StepResult> MsgQueue;
+        public ConcurrentQueue<StepResult> MsgQueue = new ConcurrentQueue<StepResult>();
 
         public bool IsTraining = false;
 
         // process
         private Process proc;
+
+        // currentIteration
+        private int currentIteration = 0;
 
         public void startTrain()
         {
@@ -68,26 +72,36 @@ namespace TrainDetectorDll
                     Arguments = buildArgs(),
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     CreateNoWindow = true
                 }
             };
+            proc.OutputDataReceived += new DataReceivedEventHandler(OutputHandler);
+            proc.ErrorDataReceived += new DataReceivedEventHandler(OutputHandler);
             proc.Start();
+            proc.BeginOutputReadLine();
+            proc.BeginErrorReadLine();
+            proc.WaitForExit();
 
-            // create new thread to parse output
-            var thread = new Thread(parseTrainOutput);
-            thread.Start();
+            //TrainDetector.StepResult result;
+            //while (MsgQueue.TryDequeue(out result))
+            //{
+            //    Console.WriteLine("[info] " + result.ToString());
+            //}
         }
 
-        private void parseTrainOutput()
+        void OutputHandler(object sendingProcess, DataReceivedEventArgs line)
         {
-            int currentIteration = 0;
-            while (currentIteration < Iteration && !proc.StandardOutput.EndOfStream)
+            if (currentIteration < Iteration)
             {
-                //Console.WriteLine("current iteration: " + currentIteration);
-                var line = proc.StandardOutput.ReadLine();
-                if (line.EndsWith("images"))
+                if (debug)
                 {
-                    var results = line.Split(new string[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+                    Console.WriteLine(line.Data);
+                }
+
+                if (line.Data.TrimEnd().EndsWith("images"))
+                {
+                    var results = line.Data.Split(new string[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
                     StepResult stepResult;
                     stepResult.Iterations = results[0].Split(':')[0].TrimStart();
                     stepResult.AvgLoss = results[1].Split(' ')[0];
@@ -98,12 +112,14 @@ namespace TrainDetectorDll
                     currentIteration++;
                 }
             }
-
-            // stop the process
-            stopProcess();
+            else
+            {
+                // stop the process
+                stopProcess();
+            }
         }
 
-    
+
         private string buildArgs()
         {
             return "detector train" + " " + DataFilePath + " " + NetCfg + " " + NetWeights + " " + extraArgs;
@@ -144,7 +160,7 @@ namespace TrainDetectorDll
             }
 
             // create DataFile.Backup
-            if(!Directory.Exists(dataFile.Backup))
+            if (!Directory.Exists(dataFile.Backup))
             {
                 Directory.CreateDirectory(dataFile.Backup);
             }
@@ -158,7 +174,7 @@ namespace TrainDetectorDll
             foreach (var file in files)
             {
                 if (File.Exists(file) || Directory.Exists(file)) { }
-                else throw new FileNotFoundException("not found " + file);                   
+                else throw new FileNotFoundException("not found " + file);
             }
         }
 
@@ -172,27 +188,4 @@ namespace TrainDetectorDll
         }
     }
 
-    public class FixedSizedQueue<T> : ConcurrentQueue<T>
-    {
-        private readonly object syncObject = new object();
-        public int Size { get; private set; }
-
-        public FixedSizedQueue(int size)
-        {
-            Size = size;
-        }
-
-        public new void Enqueue(T obj)
-        {
-            base.Enqueue(obj);
-            lock (syncObject)
-            {
-                while (base.Count > Size)
-                {
-                    T outObj;
-                    base.TryDequeue(out outObj);
-                }
-            }
-        }
-    }
 }
