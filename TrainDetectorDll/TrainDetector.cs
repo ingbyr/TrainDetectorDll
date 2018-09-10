@@ -17,7 +17,7 @@ namespace TrainDetectorDll
         private string extraArgs = "-dont_show";
 
         // dir path
-        public string TrainDataPath;
+        public List<String> TrainDataPaths;
         public string DataFilePath;
 
         // train config
@@ -122,16 +122,23 @@ namespace TrainDetectorDll
         public void prepareData(DataFile dataFile)
         {
             // get pic path list
-            string[] files = Directory.GetFileSystemEntries(TrainDataPath);
             List<string> pictures = new List<String>();
-            foreach (var file in files)
+
+            foreach (var path in TrainDataPaths)
             {
-                string extention = Path.GetExtension(file).ToLower();
-                if (extention == ".jpg")
+
+                string[] files = Directory.GetFileSystemEntries(path);
+                foreach (var file in files)
                 {
-                    pictures.Add(file);
+                    string extention = Path.GetExtension(file).ToLower();
+                    if (extention.ToLower() == ".jpg")
+                    {
+                        pictures.Add(file);
+                    }
                 }
+
             }
+
 
             // save pics list to DataFile.Train text file
             using (StreamWriter writer = new StreamWriter(dataFile.Train))
@@ -159,7 +166,7 @@ namespace TrainDetectorDll
             }
 
             // check related files
-            checkFiles(Trainer, NetCfg, NetWeights, TrainDataPath, DataFilePath, dataFile.Train, dataFile.Valid, dataFile.Names, dataFile.Backup);
+            checkFiles(Trainer, NetCfg, NetWeights, DataFilePath, dataFile.Train, dataFile.Valid, dataFile.Names, dataFile.Backup);
         }
 
         private void checkFiles(params string[] files)
